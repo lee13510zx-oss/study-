@@ -6,7 +6,7 @@ on:
       image_path:
         description: Path below public/ to publish through GitHub Pages
         required: true
-        default: instagram/post.jpg
+        default: instagram/test-card.jpg
         type: string
       publish:
         description: Publish after the mandatory dry run succeeds
@@ -35,15 +35,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Verify the image is in the GitHub Pages artifact
+      - name: Validate the requested image path
         env:
           IMAGE_PATH: ${{ inputs.image_path }}
         run: |
           case "$IMAGE_PATH" in
             /*|*'..'*|*\\*) echo 'image_path must be a relative path below public/' >&2; exit 1 ;;
           esac
-          test -f "public/$IMAGE_PATH"
+          if [ "$IMAGE_PATH" != 'instagram/test-card.jpg' ]; then
+            test -f "public/$IMAGE_PATH"
+          fi
       - run: npm run build
+      - name: Create the default JPEG test card
+        if: ${{ inputs.image_path == 'instagram/test-card.jpg' }}
+        run: ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=0x101828:s=1080x1080:d=1 -frames:v 1 -q:v 2 dist/instagram/test-card.jpg
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

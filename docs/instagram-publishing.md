@@ -13,7 +13,7 @@ Do not store either value in source control or workflow logs. The script never w
 
 ## Runbook
 
-1. Add a JPEG below `public/`, normally `public/instagram/post.jpg`.
+1. Use the included default test card, or add a JPEG below `public/` and enter its relative path in the workflow.
 2. Run **Publish Instagram test post** with `publish` left disabled. This deploys GitHub Pages and validates that the configured Graph account is exactly `@codex.publisher.test`, without creating a media container.
 3. After that successful dry run, rerun it with `publish` enabled. The workflow performs another dry run, then creates `/media` and calls `/media_publish`.
 
