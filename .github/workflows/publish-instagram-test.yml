@@ -1,0 +1,75 @@
+name: Publish Instagram test post
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_path:
+        description: Path below public/ to publish through GitHub Pages
+        required: true
+        default: instagram/post.jpg
+        type: string
+      publish:
+        description: Publish after the mandatory dry run succeeds
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify the image is in the GitHub Pages artifact
+        env:
+          IMAGE_PATH: ${{ inputs.image_path }}
+        run: |
+          case "$IMAGE_PATH" in
+            /*|*'..'*|*\\*) echo 'image_path must be a relative path below public/' >&2; exit 1 ;;
+          esac
+          test -f "public/$IMAGE_PATH"
+      - run: npm run build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  verify-and-publish:
+    needs: deploy
+    runs-on: ubuntu-latest
+    env:
+      INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+      INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+      PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+      IMAGE_PATH: ${{ inputs.image_path }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Derive the public image URL
+        run: echo "IMAGE_URL=${PAGE_URL%/}/${IMAGE_PATH}" >> "$GITHUB_ENV"
+      - name: Mandatory Instagram dry run
+        run: node scripts/publish-instagram.mjs --dry-run --image-url "$IMAGE_URL"
+      - name: Publish to @codex.publisher.test
+        if: ${{ inputs.publish }}
+        run: node scripts/publish-instagram.mjs --publish --confirmed-dry-run --image-url "$IMAGE_URL"
